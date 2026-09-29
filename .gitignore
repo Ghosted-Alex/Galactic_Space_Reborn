@@ -11,19 +11,18 @@ env/
 ENV/
 
 # Environment variables / Secrets
-# Never commit your API keys or passwords
+# PRO TIP: Never commit your API keys or passwords
 .env
 .env.*
 
 # Distribution / Build / Packaging
-# These are generated when you build or package your project
+# These are generated when pyinstaller builds or packages the project
 dist/
 build/
 *.egg-info/
 .eggs/
 
 # IDE-specific files
-# Your original editor settings
 .vscode/
 .idea/
 
@@ -41,10 +40,15 @@ build/
 resource_packs/*
 
 # Exceptions
-!requirements.txt
+
+# Developer Exclusives
+*debug*
 
 # Exlude
 excluded/
 
 # Configurations
 settings.json
+
+# Game Spacific Data
+logs/

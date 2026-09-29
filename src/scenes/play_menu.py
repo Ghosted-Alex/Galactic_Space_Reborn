@@ -4,8 +4,10 @@ import config
 from src import assets
 from src import starfield
 from src import states
+from src.controls import ControllerInput
 from .base import BaseScene
 
+from src import logger
 
 _DIFFICULTY_OPTIONS = [
     {"name": "EASY",    "texture": "difficulty0", "multiplier": 0.75, "color": (70, 160, 255)},
@@ -101,6 +103,16 @@ def handle_event(event: pygame.event.Event, manager=None):
         elif event.key == pygame.K_ESCAPE:
             _return_to_title(manager)
 
+    # Controller navigation (main menu)
+    elif ControllerInput.nav_up(event):
+        _state["selected_index"] = (_state["selected_index"] - 1) % len(_MENU_LABELS)
+    elif ControllerInput.nav_down(event):
+        _state["selected_index"] = (_state["selected_index"] + 1) % len(_MENU_LABELS)
+    elif ControllerInput.confirm(event):
+        _activate_option(_state["selected_index"], manager)
+    elif ControllerInput.cancel(event):
+        _return_to_title(manager)
+
     elif event.type == pygame.MOUSEMOTION:
         mouse_pos = event.pos
         _state["hover_item"] = None
@@ -128,6 +140,16 @@ def _handle_submenu_event(event: pygame.event.Event, manager=None):
         elif event.key == pygame.K_ESCAPE:
             _state["submenu_open"] = False  # Cancel without applying
 
+    # Controller navigation (difficulty submenu)
+    elif ControllerInput.nav_up(event):
+        _state["sub_selected_index"] = (_state["sub_selected_index"] - 1) % len(_DIFFICULTY_OPTIONS)
+    elif ControllerInput.nav_down(event):
+        _state["sub_selected_index"] = (_state["sub_selected_index"] + 1) % len(_DIFFICULTY_OPTIONS)
+    elif ControllerInput.confirm(event):
+        _apply_difficulty_and_close()
+    elif ControllerInput.cancel(event):
+        _state["submenu_open"] = False  # Cancel without applying
+
     elif event.type == pygame.MOUSEMOTION:
         mouse_pos = event.pos
         for idx, rect in enumerate(_state["sub_option_rects"]):
@@ -150,7 +172,7 @@ def _apply_difficulty_and_close():
     """Apply the highlighted difficulty to config and close the submenu."""
     opt = _DIFFICULTY_OPTIONS[_state["sub_selected_index"]]
     states.difficulty = opt["multiplier"]
-    print(f"[Play Menu] Difficulty set to {opt['name']} ({states.difficulty}x)")
+    logger.engine_log.info(f"Difficulty set to {opt['name']} ({states.difficulty}x)")
     _state["submenu_open"] = False
 
 
@@ -172,7 +194,7 @@ def _activate_option(index: int, manager=None):
 def _start_gameplay(manager=None):
     """Launch the gameplay scene."""
     diff_info = _get_current_difficulty_info()
-    print(f"[Play Menu] Starting run – {diff_info['name']} ({states.difficulty}x)")
+    logger.engine_log.info(f"Starting run - {diff_info['name']} ({states.difficulty}x)")
     if manager:
         from .gameplay import GameplayScene
         manager.set_scene(GameplayScene(), fade=True)

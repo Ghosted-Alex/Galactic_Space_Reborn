@@ -1,0 +1,83 @@
+{
+    "asset_version": [1,0,0],
+    "textures": {
+        "player_blank": "textures/player/player-1.png",
+        "player0": "textures/player/player0.png",
+        "player1": "textures/player/player1.png",
+        "player2": "textures/player/player2.png",
+        "player3": "textures/player/player3.png",
+        "player_variant_invincible": "textures/player/variants/invincible.png",
+        "enemy0": "textures/enemy/enemy0.png",
+        "enemy1": {
+            "file": "textures/enemy/enemy1.png",
+            "scale": 6
+        },
+        "enemy2": "textures/enemy/enemy2.png",
+        "shield": "textures/enemy/shield.png",
+        "bullet_blank": "textures/bullet/bullet-1.png",
+        "bullet0": "textures/bullet/bullet0.png",
+        "bullet1": "textures/bullet/bullet1.png",
+        "bullet2": "textures/bullet/bullet2.png",
+        "bullet3": "textures/bullet/bullet3.png",
+        "effect_shoot": "textures/effects/shoot.png",
+        "wrench": {
+            "file": "textures/powerUp/powerUp0.png",
+            "scale": 6
+        },
+        "power_wrench": {
+            "file": "textures/powerUp/powerUp1.png",
+            "scale": 6
+        },
+        "energy": {
+            "file": "textures/powerUp/powerUp2.png",
+            "scale": 6
+        },
+        "game_over": "textures/ui/txt/game_over.png",
+        "icon": {
+            "file": "textures/ui/icon.png",
+            "scale": 1
+        },
+        "pre_roll": {
+            "file": "textures/ui/preRoll.png",
+            "scale": 8
+        },
+        "title": {
+            "file": "textures/ui/title.png",
+            "scale": 3
+        },
+        "difficulty0": "textures/ui/difficulty/difficulty0.png",
+        "difficulty1": "textures/ui/difficulty/difficulty1.png",
+        "difficulty2": "textures/ui/difficulty/difficulty2.png",
+        "difficulty3": "textures/ui/difficulty/difficulty3.png",
+        "difficulty4": "textures/ui/difficulty/difficulty4.png",
+        "difficulty5": "textures/ui/difficulty/difficulty5.png",
+        "invincibility_charge": {
+            "file": "textures/player/animation/player0/invincibility_charge.png",
+            "scale": 1
+        }
+    },
+    "audio": {
+        "sound": {
+            "entity_damage": "sounds/entity_damage.wav",
+            "player_death": "sounds/player_death.wav",
+            "player_shoot": "sounds/player_shoot.wav",
+            "player_power_gain": {
+                "file": "sounds/player_power_gain.wav",
+                "volume": 0.5
+            },
+            "player_health_gain": "sounds/player_health_gain.wav",
+            "fail": {
+                "file": "sounds/fail.wav",
+                "volume": 0.5
+            },
+            "shield_destroy": {
+                "file": "sounds/shield_destroy.wav",
+                "volume": 0.5
+            }
+        },
+        "music": {
+            "invincibility": "music/invincibility.wav",
+            "invincibility_full_draft": "music/invincibility_full_draft.wav"
+        }
+    }
+}

@@ -117,16 +117,16 @@ def draw_game_over_ui(screen):
     hi_score_go_str = assets.pressStart2P.render(f"HIGH SCORE: {display_high_score:07d}", True, (255, 255, 255))
 
     ins_reset = assets.pressStart2P.render(f"Press \"{pygame.key.name(config.KeyBinds.General.reset, False)}\" to Reset Game", True, (255, 255, 255))
-    ins_quit = assets.pressStart2P.render(f"Press \"{pygame.key.name(config.KeyBinds.General.escape, False)}\" to go back to title", True, (255, 255, 255))
+    ins_quit = assets.pressStart2P.render(f"Press \"{pygame.key.name(config.KeyBinds.General.escape, False)}\" to go back\nto title", True, (255, 255, 255))
 
     game_over_str = assets.pressStart2P.render('GAME OVER!', True, (251, 242, 54))
 
     # 4. Draw the UI elements on top
-    screen.blit(game_over_str, (368, 225))
-    screen.blit(score_go_str, (209, 275))
-    screen.blit(hi_score_go_str, (209, 315))
-    screen.blit(ins_reset, (145, 500))
-    screen.blit(ins_quit, (145, 600))
+    screen.blit(game_over_str, (config.Screen.Size.w/2-game_over_str.width/2, 225))
+    screen.blit(score_go_str, (config.Screen.Size.w/2-score_go_str.width/2, 275))
+    screen.blit(hi_score_go_str, (config.Screen.Size.w/2-hi_score_go_str.width/2, 315))
+    screen.blit(ins_reset, (config.Screen.Size.w/2-ins_reset.width/2, 500))
+    screen.blit(ins_quit, (config.Screen.Size.w/2-ins_quit.width/2, 600))
 
 def draw_panel_ui(screen, player):
     panel_rect = assets.Textures.panel_02.get_rect(topleft=(config.Screen.Size.w-246, config.Screen.Size.h-195))

@@ -4,6 +4,7 @@ import pygame
 
 import config
 from src import assets, settings, starfield
+from src.controls import ControllerInput
 from .base import BaseScene
 
 
@@ -89,6 +90,17 @@ class OptionMenuScene(BaseScene):
                 self._change_value(-1)
             elif event.key in (pygame.K_RIGHT, pygame.K_d, pygame.K_RETURN, pygame.K_SPACE):
                 self._activate_selected()
+        # Controller navigation
+        elif ControllerInput.nav_up(event):
+            self.selected_index = (self.selected_index - 1) % (len(self.options) + int(self.requires_apply))
+        elif ControllerInput.nav_down(event):
+            self.selected_index = (self.selected_index + 1) % (len(self.options) + int(self.requires_apply))
+        elif ControllerInput.nav_left(event):
+            self._change_value(-1)
+        elif ControllerInput.nav_right(event) or ControllerInput.confirm(event):
+            self._activate_selected()
+        elif ControllerInput.cancel(event):
+            self.return_to_options()
         elif event.type == pygame.MOUSEMOTION:
             for index, row in enumerate(self.row_rects):
                 if row.collidepoint(event.pos):

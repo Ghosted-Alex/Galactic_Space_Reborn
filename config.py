@@ -6,6 +6,8 @@ import pathlib
 import sys
 import math
 
+from src import logger
+
 # ------------------- PYINSTALLER EXCLUSIVE CODE | DO NOT EDIT --------------
 if hasattr(sys, "_MEIPASS"):
   # Compiled Exe: Static assets and manifests come from the read-only temp sandbox
@@ -25,9 +27,7 @@ MANIFEST_FILE = (
 
 # --- Writable User Data / Saves / External Content ---
 HIGH_SCORE_FILE = DATA_PATH / "high_score.txt"
-OPTIONS_FILE = DATA_PATH / "options.txt"
 SETTINGS_FILE = DATA_PATH / "settings.json"
-RESOURCE_PACK_SELECTION_FILE = DATA_PATH / "resource_pack.json"
 
 # Resource packs and mods should live outside so players can add them easily!
 RESOURCE_PACKS_DIR = DATA_PATH / "resource_packs"
@@ -40,6 +40,54 @@ def check_high_score_exists() -> bool:
     """Dynamic boolean check: True if high_score.txt exists on disk right now."""
     return HIGH_SCORE_FILE.exists()
 
+class ControllerBindings:
+    class XboxController:
+        # Standard Xbox layout mappings in Pygame
+        BUTTON_A = 0
+        BUTTON_B = 1
+        BUTTON_X = 2
+        BUTTON_Y = 3
+        BUTTON_LB = 4
+        BUTTON_RB = 5
+        BUTTON_BACK = 6
+        BUTTON_START = 7
+        BUTTON_LS = 8
+        BUTTON_RS = 9
+        BUTTON_SHOOT = 0  # Map A button or RT/RB for shooting
+
+        # Axis mappings
+        AXIS_LEFT_X = 0
+        AXIS_LEFT_Y = 1
+        AXIS_RIGHT_X = 2
+        AXIS_RIGHT_Y = 3
+        AXIS_TRIGGER_LEFT = 4
+        AXIS_TRIGGER_RIGHT = 5
+
+    @staticmethod
+    def get_controller(joystick_index=0):
+        if pygame.joystick.get_count() > joystick_index:
+            try:
+                return pygame.joystick.Joystick(joystick_index)
+            except pygame.error:
+                return None
+        return None
+        
+    @staticmethod
+    def get_move_vector(deadzone=0.15):
+        """Returns normalized (x, y) vector for movement with deadzone applied."""
+        if pygame.joystick.get_count() == 0:
+            return 0.0, 0.0
+        try:
+            joystick = ControllerBindings.get_controller(0)
+            if not joystick:
+                return 0.0, 0.0
+            x = joystick.get_axis(ControllerBindings.XboxController.AXIS_LEFT_X)
+            y = joystick.get_axis(ControllerBindings.XboxController.AXIS_LEFT_Y)
+            if abs(x) < deadzone: x = 0.0
+            if abs(y) < deadzone: y = 0.0
+            return x, y
+        except pygame.error:
+            return 0.0, 0.0
 
 class KeyBinds:
     """Organizes control inputs into categories for easy access."""
@@ -62,22 +110,6 @@ class KeyBinds:
         """Miscellaneous game controls."""
         reset = pygame.K_r
         escape = pygame.K_ESCAPE
-
-
-# --- This part is for modding, only modify this if you know what you are doing ----
-if os.environ.get("GSR_USE_MODS") == "True" and os.environ.get("GSR_ACTIVE_MOD"):
-    _mod_name = os.environ.get("GSR_ACTIVE_MOD")
-
-    # Divert manifest paths straight into the active workspace folder
-    MANIFEST_FILE = DATA_PATH / "mods" / _mod_name / "manifest.json"
-    MODS_ACTIVE = True
-    print(f"[Engine Config] Mod Active: Layering paths to '/mods/{_mod_name}/'")
-else:
-    # Vanilla fallback path configuration
-    MANIFEST_FILE = DATA_PATH / "manifest.json"
-    MODS_ACTIVE = False
-    print("[Engine Config] Run profile: Vanilla. Native pipeline active.")
-# -----------------------------------------------------------------------------------
 
 SPRITE_SCALING = 3
 """Multiplier for sprite asset scaling."""
@@ -117,7 +149,7 @@ class Game:
 
 format_ver = 1
 
-version_string = "1.0-beta.1"
+version_string = "1.0-beta.3"
 """Args:
     String: '<major>.<minor>-beta|build.<beta|build_number>'"""
 
@@ -143,6 +175,8 @@ version = f"{major}.{minor}-{build}"
 
 p02_pos = [Screen.Size.w - 246, Screen.Size.h - 195]
 """Position anchor for the Panel 02 UI Element."""
+
+logger.config_log.info("Loaded Config")
 
 if __name__ == "__main__":
     print(ModuleNotFoundError(

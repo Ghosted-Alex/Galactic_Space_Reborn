@@ -1,3 +1,5 @@
+"""Decorators module"""
+
 import pygame
 
 def button(text, width=560, height=72, order=0):

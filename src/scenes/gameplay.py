@@ -14,6 +14,7 @@ from src import entity
 from src import update as update_mod
 from src import ui
 from src import controls
+from src.controls import ControllerInput
 from src import starfield
 from src import stats
 from src import clock
@@ -111,8 +112,25 @@ def handle_event(event: pygame.event.Event, manager=None):
                 combo_keys = [config.KeyBinds.Debug.numrow_1]
                 if not any(keys_pressed[k] for k in combo_keys):
                     config.debug = not config.debug
+
+        # --- Controller: Pause (Start or Back/hamburger) ---
+        if ControllerInput.pause(event) and manager:
+            from .pause_menu import PauseMenuScene
+            manager.show_overlay(PauseMenuScene())
+            return
+
+        # --- Controller: Shoot (A button or RB) ---
+        if ControllerInput.shoot(event):
+            if player and not states.game_over:
+                events.on_shoot(player, _state["effects"], _state["bullets"])
+
+        # --- Controller: D-Pad movement (discrete hat step → player) ---
+        if player and event.type == pygame.JOYHATMOTION:
+            keys = pygame.key.get_pressed()
+            player.handle_input(keys, event=event)
+
     else:
-        # Game Over inputs
+        # Game Over inputs — keyboard
         if event.type == pygame.KEYDOWN:
             if event.key == config.KeyBinds.General.reset:
                 # Restart gameplay scene
@@ -121,6 +139,13 @@ def handle_event(event: pygame.event.Event, manager=None):
                 # Return to Title screen
                 from .title import TitleScene
                 manager.set_scene(TitleScene(), fade=True)
+
+        # Game Over inputs — controller (A = restart, B = title)
+        if ControllerInput.confirm(event):
+            load()
+        elif ControllerInput.cancel(event) and manager:
+            from .title import TitleScene
+            manager.set_scene(TitleScene(), fade=True)
 
 
 def game_over():

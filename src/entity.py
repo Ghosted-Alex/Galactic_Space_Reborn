@@ -4,8 +4,10 @@ import pygame
 
 from . import assets
 from . import states
+from .controls import ControllerInput
 
 import config
+from . import logger
 
 class Player:
     """Instance Class for player"""
@@ -20,6 +22,9 @@ class Player:
         self.invincible = False
         self.color = color
 
+        hitbox_width = 16
+        hitbox_height = 16
+
         # Logic to pick texture based on the 'color' (color/type) argument
         if self.color == 0:
             self.texture = assets.Textures.player0
@@ -30,29 +35,31 @@ class Player:
 
         print(self.texture)
 
-        # This creates a Rect exactly the size of your image
+        # Full image rect (used for rendering / positioning)
         self.rect = self.texture.get_rect(center=(self.x, self.y))
+
+        self.hitbox = self.rect.inflate(-hitbox_width, -hitbox_height)
         
     def draw(self, surface):
         """Blits the player texture\n
-        Draws a white hitbox rectangle (if debug mode is on)"""
+        Draws a green hitbox rectangle (if debug mode is on)"""
         # Draw the actual ship sprite
         surface.blit(self.texture, self.rect)
-        # Draw the white outline (useful for debugging hitboxes!)
+        
+        # Draws green outline around the active collision hitbox, also draws gray outline around the active image rect
         if config.debug:
-            pygame.draw.rect(surface, (51, 255, 51), self.rect, 1)
+            pygame.draw.rect(surface, (51, 255, 51), self.hitbox, 1)
+            pygame.draw.rect(surface, (109, 109, 109), self.rect, 1)
 
     # In player.py -> handle_input
-    def handle_input(self, key):
-        # 1. Get Input
-        up = key[pygame.K_UP] or key[pygame.K_w] or key[pygame.K_i] or key[pygame.K_o]
-        down = key[pygame.K_s] or key[pygame.K_DOWN] or key[pygame.K_k]
-        left = key[pygame.K_a] or key[pygame.K_LEFT] or key[pygame.K_j]
-        right = key[pygame.K_d] or key[pygame.K_RIGHT] or key[pygame.K_l]
-        a = key[pygame.K_z] or key[pygame.K_SPACE]
-        b = key[pygame.K_x] or key[pygame.K_RETURN]
+    def handle_input(self, keys, controller=None, event: pygame.event.Event = None):
+        # 1. Keyboard fallback inputs
+        up = keys[pygame.K_UP] or keys[pygame.K_w] or keys[pygame.K_i] or keys[pygame.K_o]
+        down = keys[pygame.K_s] or keys[pygame.K_DOWN] or keys[pygame.K_k]
+        left = keys[pygame.K_a] or keys[pygame.K_LEFT] or keys[pygame.K_j]
+        right = keys[pygame.K_d] or keys[pygame.K_RIGHT] or keys[pygame.K_l]
 
-        # 2. Apply Movement
+        # 2. Apply Keyboard Movement
         if up:
             self.rect.y -= self.speed
         if down:
@@ -62,29 +69,56 @@ class Player:
         if right:
             self.rect.x += self.speed
 
-        # self.rect.x += (right - left) * 15
-        # self.rect.y += (down - up) * 15
+        # 3. Apply Controller Analog Stick & D-Pad Movement if connected
+        if controller:
+            move_x, move_y = controller.get_move_vector()
+            self.rect.x += int(move_x * self.speed)
+            self.rect.y += int(move_y * self.speed)
 
-        # 3. The Boundaries
+        # Apply controller continuous D-Pad and analog movement via ControllerInput
+        dpad_x, dpad_y = ControllerInput.get_dpad_vector()
+        if dpad_x != 0 or dpad_y != 0:
+            self.rect.x += dpad_x * self.speed
+            self.rect.y += dpad_y * self.speed
+        elif not controller:
+            # Fallback to analog stick via ControllerInput if controller wasn't passed explicitly
+            stick_x, stick_y = ControllerInput.get_move_vector()
+            if stick_x != 0 or stick_y != 0:
+                self.rect.x += int(stick_x * self.speed)
+                self.rect.y += int(stick_y * self.speed)
+
+        # 4. Apply Controller D-Pad discrete event movement if passed
+        if event is not None:
+            edpad_x, edpad_y = ControllerInput.get_dpad_move(event)
+            self.rect.x += edpad_x * self.speed
+            self.rect.y += edpad_y * self.speed
+
+        # 5. Boundaries
         if self.rect.left < 0:
             self.rect.left = 0
         if self.rect.right > config.Screen.Size.w:
             self.rect.right = config.Screen.Size.w
         if self.rect.top < 0:
             self.rect.top = 0
-        if self.rect.bottom > config.Screen.Size.h-45:
-            self.rect.bottom = config.Screen.Size.h-45
+        if self.rect.bottom > config.Screen.Size.h - 45:
+            self.rect.bottom = config.Screen.Size.h - 45
+
+        # 6. Keep the collision hitbox locked to the ship's center after movement/clamping
+        self.hitbox.center = self.rect.center
 
     def update_appearance(self):
+        color = None
+
         if self.invincible:
             self.texture = assets.Textures.player_variant_invincible
         else:
             if self.color == 0:
                 self.texture = assets.Textures.player0
-                print("Texture Set Blue")
+                color = "Blue"
             else:
                 self.texture = assets.Textures.player_blank
-                print("Texture Set None")
+            
+            logger.engine_log.critical(f"Texture Set {color}")
 
 class Enemy:
     def __init__(self, x: int, y: int, enemy_type: int, shield: bool = False):
@@ -140,7 +174,13 @@ class Enemy:
 
         print(f"{self.enemy_type} summoned with health {self.health}")
 
-        self.rect = self.image.get_rect(topleft=(self.x, self.y))
+        hitbox_width = 16
+        hitbox_height = 16
+
+        # Full image rect (used for rendering / positioning)
+        self.rect = self.image.get_rect(center=(self.x, self.y))
+
+        self.hitbox = self.rect.inflate(-hitbox_width, -hitbox_height)
         
         self.max_health = self.health
         

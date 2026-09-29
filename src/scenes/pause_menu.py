@@ -4,6 +4,7 @@ import pygame
 
 import config
 from src import assets
+from src.controls import ControllerInput
 from .base import BaseScene
 
 
@@ -48,6 +49,16 @@ class PauseMenuScene(BaseScene):
                 self.selected_index = (self.selected_index + 1) % len(self.options)
             elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
                 self._activate(self.selected_index)
+        # Controller navigation
+        elif ControllerInput.nav_up(event):
+            self.selected_index = (self.selected_index - 1) % len(self.options)
+        elif ControllerInput.nav_down(event):
+            self.selected_index = (self.selected_index + 1) % len(self.options)
+        elif ControllerInput.confirm(event):
+            self._activate(self.selected_index)
+        elif ControllerInput.cancel(event) or ControllerInput.pause(event):
+            # B button or Start/Back closes the pause menu (resume)
+            self.manager.close_overlay()
         elif event.type == pygame.MOUSEMOTION:
             for index, rect in enumerate(self.option_rects):
                 if rect.collidepoint(event.pos):

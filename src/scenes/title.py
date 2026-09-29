@@ -11,8 +11,9 @@ from src import assets
 from src import starfield
 from src import stats
 from src import events
+from src.controls import ControllerInput
 from .base import BaseScene
-from .decorators import button
+from src.decorators import button
 from .play_menu import PlayMenuScene
 from .options import OptionsScene
 from .resource_pack_menu import ResourcePackMenuScene
@@ -83,6 +84,14 @@ class TitleScene(BaseScene):
             elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
                 self.buttons[self.selected_index]["callback"]()
 
+        # Controller navigation
+        elif ControllerInput.nav_up(event):
+            self.selected_index = (self.selected_index - 1) % len(self.buttons)
+        elif ControllerInput.nav_down(event):
+            self.selected_index = (self.selected_index + 1) % len(self.buttons)
+        elif ControllerInput.confirm(event):
+            self.buttons[self.selected_index]["callback"]()
+
         elif event.type == pygame.MOUSEMOTION:
             for idx, rect in enumerate(self.option_rects):
                 if rect and rect.collidepoint(event.pos):
@@ -141,11 +150,11 @@ class TitleScene(BaseScene):
 
                 screen.blit(text_surf, rect)
 
-        # Controls Footer
+        # Version Text
         if font_large:
-            help_surf = font_large.render("W/S or UP/DOWN to Select\n\nENTER to Confirm", True, (120, 130, 150))
-            help_rect = help_surf.get_rect(center=(center_x, config.Screen.Size.h - 60))
-            screen.blit(help_surf, help_rect)
+            version_surf = font_large.render(f"v{config.version}", True, (120, 130, 150))
+            version_rect = version_surf.get_rect(bottomleft=(0+10, config.Screen.Size.h-10))
+            screen.blit(version_surf, version_rect)
 
 
 # --- Module-Level Bridge Functions (Keeps src/scenes/__init__.py happy) ---

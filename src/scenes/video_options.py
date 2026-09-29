@@ -1,6 +1,6 @@
 """Video settings declared with reusable option definitions."""
 
-from .decorators import option_def
+from src.decorators import option_def
 from .option_menu import OptionMenuScene
 
 

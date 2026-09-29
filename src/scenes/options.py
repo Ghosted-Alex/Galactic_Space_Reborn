@@ -6,6 +6,7 @@ import pygame
 
 import config
 from src import assets, starfield
+from src.controls import ControllerInput
 from .base import BaseScene
 
 
@@ -66,6 +67,15 @@ def handle_event(event, manager=None):
             _state["selected_index"] = (_state["selected_index"] + 1) % len(_state["options"])
         elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
             _activate_option(_state["selected_index"], manager)
+    # Controller navigation
+    elif ControllerInput.nav_up(event):
+        _state["selected_index"] = (_state["selected_index"] - 1) % len(_state["options"])
+    elif ControllerInput.nav_down(event):
+        _state["selected_index"] = (_state["selected_index"] + 1) % len(_state["options"])
+    elif ControllerInput.confirm(event):
+        _activate_option(_state["selected_index"], manager)
+    elif ControllerInput.cancel(event):
+        _return_to_title(manager)
     elif event.type == pygame.MOUSEMOTION:
         for index, option_rect in enumerate(_state["option_rects"]):
             if option_rect.collidepoint(event.pos):

@@ -41,7 +41,7 @@ def update_entities(enemies, bullets, powerups, player, screen=None):
                 break # Enemy is dead or damaged, stop checking bullets for it
             
         # Check Player Collision
-        if e.rect.colliderect(player.rect):
+        if e.rect.colliderect(player.hitbox):
             if not player.invincible:
                 states.health_blink_timer = 0   
 
@@ -86,7 +86,7 @@ def update_entities(enemies, bullets, powerups, player, screen=None):
             continue
         
         # Check player Collision
-        if p.rect.colliderect(player.rect):
+        if p.rect.colliderect(player.hitbox):
             if p.type == 0:
                 pygame.mixer.Sound.play(assets.Sounds.player_health_gain)
                 config.health_blink_timer = 0

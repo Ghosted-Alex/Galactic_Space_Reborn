@@ -11,8 +11,11 @@ import os
 import pathlib
 import random
 import sys
+import argparse
 
 import pygame
+
+from src import scenes
 
 # Quick Initialization
 pygame.init()
@@ -22,141 +25,68 @@ import config
 
 from src import assets
 from src import settings
-from src.scenes import SceneManager, TitleScene, fade_screen
+from src import initialize
 
-try:
-    from src.pack import load_resources, verify_manifest
-    PACK_USE_AVAILABLE = True
-except ImportError:
-    PACK_USE_AVAILABLE = False
-    def load_resources():
-        """Fallback when the resource-pack module is not present."""
-        pass
+from src import events
 
-    def verify_manifest() -> bool:
-        """Fallback when src/packs.py is not present."""
-        return True
+from src import logger
 
+# Map string names passed via --scene / -s to Scene classes
+SCENE_MAP = {
+    "title": scenes.TitleScene,
+    "play_menu": scenes.PlayMenuScene,
+    "options": scenes.OptionsScene,
+    "video_options": scenes.VideoOptionsScene,
+    "audio_options": scenes.AudioOptionsScene,
+    "pause_menu": scenes.PauseMenuScene,
+    "resource_pack": scenes.ResourcePackMenuScene,
+    "gameplay": scenes.GameplayScene,
+}
 
-def show_loading_screen():
-    """Load all assets with a visual loading screen, displaying the splash screen when progress reaches halfway."""
-    
-    if not verify_manifest():
-        print("[Engine Core] Aborting asset streaming sequence due to manifest file verification errors.")
-        pygame.quit()
-        sys.exit(1)
+def parse_cli_args():
+    """"""
+    parser = argparse.ArgumentParser(description="Galactic Space Reborn is a fast-paced space shooter where you blast through and dodge enemies. Collecting Power-Ups can help you throughout your runs. Fight through increasingly difficult levels and take down bosses to prove who can achieve the highest score.")
+    parser.add_argument(
+        "-s", "--scene",
+        type=str,
+        default="title",
+        choices=list(SCENE_MAP.keys()),
+        help="Initial scene to load on launch (default: title)"
+    )
+    return parser.parse_args()
 
-    # Pre-resolve pre-roll splash texture configuration
-    manifest = assets.get_merged_manifest()
-    pre_roll_cfg = manifest.get("textures", {}).get("pre_roll", "textures/ui/preRoll.png")
-    if isinstance(pre_roll_cfg, dict):
-        rel_path = pre_roll_cfg.get("file", "textures/ui/preRoll.png")
-        scale = pre_roll_cfg.get("scale", config.SPRITE_SCALING)
-    else:
-        rel_path = pre_roll_cfg
-        scale = config.SPRITE_SCALING
+def main() -> any:
+    """The gateway into the game"""
 
-    pre_roll_path = assets.resolve_asset_path(rel_path)
-    pre_roll_img = None
-    if pre_roll_path.is_file():
-        try:
-            raw_pre_roll = pygame.image.load(str(pre_roll_path)).convert_alpha()
-            pre_roll_img = pygame.transform.scale_by(raw_pre_roll, scale)
-        except Exception as err:
-            print(f"[Engine Core] Error loading pre-roll graphic: {err}")
-    
-    # 1. Start asset loading generator
-    loader = assets.load_assets_generator()
-    screen_rect = SCR.get_rect()
+    # Parse arguments prior to GUI setup
+    args = parse_cli_args()
 
-    # Fade-in state for the pre-roll splash
-    pre_roll_alpha = 0          # current alpha (0=transparent, 255=opaque)
-    FADE_SPEED = 32              # alpha units added per frame (~32 frames to full opacity)
+    initialize.initialize_files()
 
-    # 2. Progress loop
-    for progress, current_file_text in loader:
-        for event in pygame.event.get():
-            if event.type == pygame.QUIT:
-                pygame.quit()
-                sys.exit(0)
+    fps_clock, scr, game_running = initialize.initialize_vars()
 
-        SCR.fill((0, 0, 0))
+    controller_node = initialize.load_controller_nodes()
 
-        bar_width = 400
-        bar_height = 20
-        bar_x = screen_rect.centerx - (bar_width // 2)
-        bar_y = screen_rect.centery + 100
-        progress_bar_width = (progress / 100) * bar_width
+    player_controller = None
+    if pygame.joystick.get_count() > 0:
+        player_controller = config.ControllerBindings.XboxController
 
-        if progress >= 25 and pre_roll_img is not None:
-            pre_roll_alpha = min(255, pre_roll_alpha + FADE_SPEED)
-            pre_roll_img.set_alpha(pre_roll_alpha)
-            pre_roll_rect = pre_roll_img.get_rect(center=(screen_rect.centerx, bar_y - 150))
-            SCR.blit(pre_roll_img, pre_roll_rect)
+    # 1. Show the loading screen FIRST
+    initialize.show_loading_screen(scr, 24)
 
-        # Draw progress bar outlines and fill
-        pygame.draw.rect(SCR, (255, 255, 255), (bar_x, bar_y, progress_bar_width, bar_height))
-        pygame.draw.rect(SCR, (255, 255, 255), (bar_x - 4, bar_y - 4, bar_width + 8, bar_height + 8), 1)
+    # 2. Initialize the scene manager
+    scene_manager = initialize.initialize_scene_manager(scr)
 
-        # Draw progress, title, and current file text
-        if hasattr(assets, 'pressStart2P') and assets.pressStart2P is not None:
-            title = assets.pressStart2P.render("Loading Game...", True, (255, 255, 255))
-            status = assets.pressStart2P.render(f"({progress}%)", True, (255, 255, 255))
+    # 3. Resolve targeted scene class from arguments (defaults to TitleScene if invalid or unspecified)
+    target_scene_class = SCENE_MAP.get(args.scene.lower(), scenes.TitleScene)
 
-            # Create a smaller font or render the current file string (you can scale it down if 30pt is too big)
-            file_surf = assets.pressStart2P.render(current_file_text, True, (180, 180, 180))
-            # Optional: Scale down file text so it doesn't overflow the screen width
-            file_surf = pygame.transform.smoothscale(file_surf, (int(file_surf.get_width() * 0.5),
-                                                                 int(file_surf.get_height() * 0.5)))
+    # 4. Set the resolved scene
+    scene_manager.set_scene(target_scene_class(), fade=True, fade_speed=12)
 
-            title_rect = title.get_rect(center=(screen_rect.centerx, bar_y - 30))
-            status_rect = status.get_rect(center=(screen_rect.centerx, bar_y + 45))
-            file_rect = file_surf.get_rect(center=(screen_rect.centerx, bar_y + 80))
+    logger.engine_log.info(f"FPS Clock: {fps_clock} | Screen Surface: {scr} | Scene Manager: {scene_manager}")
 
-            SCR.blit(title, title_rect)
-            SCR.blit(status, status_rect)
-            SCR.blit(file_surf, file_rect)
-
-        pygame.display.flip()
-
-    # Fade out loading screen to black before entering title screen
-    fade_screen(SCR, mode="out", speed=15)
-
-
-def initialize():
-    """Initialize Game State and Engine Window."""
-    global FPS, SCR
-    
-    FPS = pygame.time.Clock()
-    settings.load()
-    SCR = settings.create_display()
-    
-    pygame.display.set_caption(config.Game.title)
-    
-    # Restore the player's resource-pack choice before resolving any assets.
-    load_resources()
-    
-    # Run asset loader with pre-roll splash halfway through
-    show_loading_screen()
-    settings.apply_audio()
-    
-    if assets.Textures.icon is not None:
-        pygame.display.set_icon(assets.Textures.icon)
-    else:
-        vanilla_icon_path = pathlib.Path(config.DATA_PATH) / "assets" / "textures" / "ui" / "icon.png"
-        if vanilla_icon_path.is_file():
-            fallback_surface = pygame.image.load(str(vanilla_icon_path)).convert_alpha()
-            pygame.display.set_icon(fallback_surface)
-            print("[Engine Core] Pack icon undefined. Safely loaded vanilla fallback display icon.")
-    
-    return FPS, SCR
-
-
-FPS, SCR = initialize()
-
-# Initialize Scene Manager & set initial Title Scene (with smooth fade-in)
-scene_manager = SceneManager(SCR)
-scene_manager.set_scene(TitleScene(), fade=True, fade_speed=12)
+    # 5. Set Up variables
+    return fps_clock, scr, game_running, scene_manager
 
 
 def reload_game_window():
@@ -169,24 +99,42 @@ def reload_game_window():
     SCR = settings.create_display()
     pygame.display.set_caption(config.Game.title)
 
-    show_loading_screen()
+    initialize.show_loading_screen(SCR, 24)
     settings.apply_audio()
     if assets.Textures.icon is not None:
         pygame.display.set_icon(assets.Textures.icon)
 
     scene_manager.replace_screen(SCR)
-    # A fresh title scene avoids keeping gameplay/menu surfaces tied to the old display.
-    scene_manager.set_scene(TitleScene(), fade=False)
+    scene_manager.set_scene(scenes.TitleScene(), fade=False)
 
-running = True
+running = False
+
+if __name__ == "__main__":
+    logger.engine_log.info("test")
+    try:
+        FPS, SCR, running, scene_manager = main()
+    except Exception as e:
+        events.on_crash(e=e)
 
 while running:
     dt = FPS.tick(60) / 1000.0  # Framerate clock tick
 
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
+            initialize.unload_controller_nodes()
             running = False
+            pygame.quit()
         scene_manager.handle_event(event)
+
+        if event.type == pygame.JOYBUTTONDOWN:
+            if event.button == config.ControllerBindings.XboxController.BUTTON_A:
+                # print("[Input] Action: Jump / Select")
+                pass
+
+    move_x, move_y = config.ControllerBindings.get_move_vector(deadzone=0.15)
+    if move_x != 0 or move_y != 0:
+        # print("[Input] Action: Move")
+        pass
 
     if scene_manager.consume_window_reload_request():
         reload_game_window()
@@ -195,5 +143,3 @@ while running:
     scene_manager.draw(SCR)
 
     pygame.display.flip()
-
-pygame.quit()

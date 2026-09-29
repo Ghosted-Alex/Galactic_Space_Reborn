@@ -4,6 +4,7 @@ import sys
 import pygame
 import config
 from src import assets, starfield, pack
+from src.controls import ControllerInput
 from .base import BaseScene
 
 _state = {"loaded": False, "stars_bg": None, "packs": [], "selected_index": 0,
@@ -51,6 +52,15 @@ def handle_event(event, manager=None):
             _state["selected_index"] = (_state["selected_index"] + 1) % len(_state["packs"])
         elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
             _apply_selected(manager)
+    # Controller navigation
+    elif ControllerInput.nav_up(event):
+        _state["selected_index"] = (_state["selected_index"] - 1) % len(_state["packs"])
+    elif ControllerInput.nav_down(event):
+        _state["selected_index"] = (_state["selected_index"] + 1) % len(_state["packs"])
+    elif ControllerInput.confirm(event):
+        _apply_selected(manager)
+    elif ControllerInput.cancel(event):
+        _return_to_title(manager)
     elif event.type == pygame.MOUSEMOTION:
         _state["hover_item"] = None
         for index, row in enumerate(_state["row_rects"]):

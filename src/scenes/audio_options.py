@@ -1,7 +1,7 @@
 """Music and sound settings declared with reusable option definitions."""
 
 from src import settings
-from .decorators import option_def
+from src.decorators import option_def
 from .option_menu import OptionMenuScene
 
 

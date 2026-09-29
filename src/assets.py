@@ -6,6 +6,9 @@ import config
 import time
 import random
 import json
+import importlib
+
+from . import logger
 
 # Initialize mixer for sound assets
 pygame.mixer.init()
@@ -71,6 +74,9 @@ class Music:
     invincibility = None
     invincibility_full_draft = None
 
+def check_assets():
+    pass
+
 def load_music(
     song: str | pathlib.Path, 
     fileHint: str = "", 
@@ -88,32 +94,33 @@ def resolve_asset_path(relative_path: str | pathlib.Path) -> pathlib.Path:
     """Resolves an asset file path through the active resource pack, then vanilla."""
     try:
         from . import pack
-        if pack is not None:
-            return pack.resolve_asset_path(relative_path)
     except ImportError:
-        pass
+        logger.engine_log.error("Unable to load resource pack: can't open file '<PROJECT_ROOT>/src/pack.py': [Errno 2] No such file or directory")
+
     return pathlib.Path(config.DATA_PATH) / "assets" / relative_path
 
 def get_merged_manifest() -> dict:
-    """Gets the active resource-pack manifest merged over the vanilla manifest."""
+    """Gets the active resource-pack manifest merged over the vanilla assets."""
     try:
         from . import pack
-        if pack is not None:
-            return pack.get_merged_manifest()
     except ImportError:
-        pass
+        logger.engine_log.error("Unable to load resource pack: can't open file '<PROJECT_ROOT>/src/pack.py': [Errno 2] No such file or directory")
 
-    vanilla_base = pathlib.Path(config.DATA_PATH)
-    vanilla_manifest_path = vanilla_base / "manifest.json"
+    vanilla_base = pathlib.Path(config.DATA_PATH / "assets")
+    vanilla_manifest_path = vanilla_base / "assets.json"
     with open(vanilla_manifest_path, "r") as f:
         vanilla_data = json.load(f)
 
-    v_assets = vanilla_data.get("assets", {})
+    logger.engine_log.info(f"Vanilla Base set to: {vanilla_base}")
+    # logger.engine_log.info(f"Vanilla Data set to: {vanilla_data}")
+    logger.engine_log.info(f"Vanilla Manifest/Assets path set to: {vanilla_manifest_path}")
+
     return {
-        "textures": dict(v_assets.get("textures", {})),
-        "sound": dict(v_assets.get("audio", {}).get("sound", {})),
-        "music": dict(v_assets.get("audio", {}).get("music", {}))
+        "textures": dict(vanilla_data.get("textures", {})),
+        "sound": dict(vanilla_data.get("audio", {}).get("sound", {})),
+        "music": dict(vanilla_data.get("audio", {}).get("music", {}))
     }
+
 
 def load_assets_generator():
     """
@@ -125,7 +132,7 @@ def load_assets_generator():
     sound_manifest = manifest["sound"]
     music_manifest = manifest["music"]
 
-    print("[Engine Core] Asset manifests loaded successfully.")
+    logger.rp_thread_log.info(f"Succesfully loaded asset manifest with {manifest}")
 
     total_items = len(texture_manifest) + len(sound_manifest) + len(music_manifest) + 2
     loaded_count = 0

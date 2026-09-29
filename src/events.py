@@ -1,14 +1,13 @@
-"""Events Module — Overridable game loop functions exposed to the Modding API.
-
-Every function here is a named hook that mods can target with:
-  api.mixin.overwrite(api.events, 'function_name', replacement)
-  api.mixin.inject(api.events, 'function_name', at='HEAD')
-  api.mixin.inject(api.events, 'function_name', at='TAIL')
-"""
+"""Events Module — Overridable game loop functions exposed to people who forks the project"""
 
 import random
 import pygame
 import config
+import traceback
+import datetime
+from pathlib import Path
+
+from typing import NoReturn
 
 from . import entity
 from . import bullet
@@ -17,7 +16,7 @@ from . import assets
 from . import stats
 from . import states
 from . import animation
-
+from . import logger
 
 # =============================================================================
 # SPAWNING events
@@ -160,6 +159,52 @@ def load_high_score(path) -> int:
 # =============================================================================
 # GAME STATE events
 # =============================================================================
+
+def on_crash(e) -> NoReturn:
+    crash_comments = [
+        "# Shields down, captain!",
+        "# That wasn't a meteor...",
+        "# Houston, we have a fatal crash!.",
+        "# Target locked onto an IndexError.",
+        "# The hyperspace drive just divided by zero.",
+        "# Nav-computer outputted NaN instead of coordinates.",
+        "# Laser inventory overflow! Evacuate the module!",
+        "# Hull breach detected in the main event loop.",
+        "# Alien malware detected in the asset loader.",
+        "# Engines fired backwards. Oops.",
+        "# The mothership didn't like that trajectory.",
+        "# Lost tracking on enemy ship #404.",
+        "# Reactor core melted. Who turned off the cooling fan?",
+        "# We forgot to attach a hitbox to the asteroid.",
+        "# Subspace communication array disconnected abruptly.",
+        "# Tachyon particles interfered with the Python interpreter.",
+        "# Gravity well too strong. Escape velocity failed.",
+        "# Autopilot is currently asleep at the wheel.",
+        "# That's a lot of bullets on screen.",
+    ]
+
+    crash_comment = crash_comments[random.randint(0, len(crash_comments)-1)]
+
+    # Format the traceback string
+    error_trace = "".join(traceback.format_exception(type(e), e, e.__traceback__))
+    
+    # Write to a log file (similar to Minecraft crash logs)
+    logs_dir = Path("logs")
+    logs_dir.mkdir(exist_ok=True)
+    timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    log_file = logs_dir / f"crash-{timestamp}.log"
+
+    with open(log_file, "w", encoding="utf-8") as f:
+        f.write("--- Galactic Space Reborn Crash Report ---\n")
+        f.write(f"{crash_comment}\n")
+        f.write(f"Time: {timestamp}\n")
+        f.write(f"Description: {e}\n\n")
+        f.write("A detailed walkthrough of the error, its code path and all known details is as follows:\n")
+        f.write(error_trace)
+
+    logger.engine_log.critical(e)
+
+    print(f"--- Galactic Space Reborn Crash Report ---\n{crash_comment}\nTime: {timestamp}\nDescription: {e}\n\nA detailed walkthrough of the error, its code path and all known details is as follows:\n{error_trace}")
 
 def on_game_over() -> None:
     """Called when the player's health reaches zero.

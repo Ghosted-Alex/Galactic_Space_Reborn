@@ -6,6 +6,7 @@ import os
 import pygame
 import config
 
+from . import logger
 
 def _manifest_details(data: dict) -> tuple[dict, int | None]:
     """Read both the current and legacy resource-pack manifest layouts."""
@@ -15,7 +16,6 @@ def _manifest_details(data: dict) -> tuple[dict, int | None]:
     if isinstance(format_block, dict) and isinstance(format_block.get("manifest"), dict):
         return format_block["manifest"], format_block.get("version")
     return {}, None
-
 
 def discover_packs() -> list[dict]:
     """Return usable packs in the resource_packs directory with display metadata."""
@@ -45,9 +45,8 @@ def discover_packs() -> list[dict]:
                 "icon_path": pack_dir / "pack_icon.png",
             })
         except (OSError, json.JSONDecodeError) as err:
-            print(f"[Resource Pack Engine] Ignoring unreadable pack '{pack_dir.name}': {err}")
+            logger.rp_thread_log.error(f"Unable to load resource pack \"{pack_dir.name}\": {err}")
     return packs
-
 
 def load_saved_selection() -> str | None:
     """Load a previously selected pack, falling back safely to vanilla."""
@@ -63,7 +62,6 @@ def load_saved_selection() -> str | None:
         except (OSError, json.JSONDecodeError, AttributeError):
             pass
     return selected if any(pack["id"] == selected for pack in discover_packs()) else None
-
 
 def set_active_pack(pack_name: str | None, persist: bool = True) -> bool:
     """Activate a discovered pack (or ``None`` for vanilla) for this process."""
@@ -90,13 +88,12 @@ def set_active_pack(pack_name: str | None, persist: bool = True) -> bool:
             with settings_path.open("w", encoding="utf-8") as settings_file:
                 json.dump(settings, settings_file, indent=2)
         except OSError as err:
-            print(f"[Resource Pack Engine] Could not save selected pack: {err}")
+            logger.rp_thread_log.error(f"Could not save selected pack: {err}")
         except json.JSONDecodeError:
-            print("[Resource Pack Engine] Could not read settings.json; saving a fresh settings file.")
+            logger.rp_thread_log.error("[Resource Pack Engine] Could not read settings.json; saving a fresh settings file.")
             with pathlib.Path(config.SETTINGS_FILE).open("w", encoding="utf-8") as settings_file:
                 json.dump({"resource_pack": pack_name}, settings_file, indent=2)
     return True
-
 
 def load_resources():
     """Restore the selected pack and ensure the general settings file exists."""
@@ -169,7 +166,7 @@ def get_merged_manifest() -> dict:
                     if "music" in pack_audio:
                         music_manifest.update(pack_audio["music"])
             except Exception as err:
-                print(f"[Resource Pack Engine] Error loading pack asset overrides: {err}")
+                logger.rp_thread_log.error(f"Error loading pack asset overrides: {err}")
 
     return {
         "textures": texture_manifest,
@@ -187,67 +184,70 @@ def verify_manifest() -> bool:
         manifest_path = base_path / "manifest.json"
     else:
         base_path = pathlib.Path(config.DATA_PATH) / "assets"
-        manifest_path = pathlib.Path(config.MANIFEST_FILE)
 
-    if not manifest_path.is_file():
-        print(f"[Validator] ERROR: manifest.json file missing at: {manifest_path}")
-        return False
-
-    try:
-        with open(manifest_path, "r") as f:
-            data = json.load(f)
-    except json.JSONDecodeError as err:
-        print(f"[Validator] CRITICAL: JSON Syntax Error in {manifest_path.name}!")
-        print(f"[Validator] Line {err.lineno}, Column {err.colno}: {err.msg}")
-        return False
-
-    # Updated flat validation handshake layer checking for format_version directly
-    try:
-        manifest_node, version_node = _manifest_details(data)
-
-        required_keys = ["name", "description", "author", "uuid", "version", "min_engine_version"]
-        for key in required_keys:
-            if manifest_node.get(key) is None:
-                print(f"[Validator] CRITICAL: Required manifest field '{key}' is missing inside the handshake.")
-                return False
-
-        if version_node != config.format_ver:
-            print(f"[Validator] CRITICAL: Manifest is on format version {version_node}, the engine currently supports format version {config.format_ver}")
+    if is_pack_active():
+        if not manifest_path.is_file():
+            logger.rp_thread_log.error(f"manifest.json file missing at: {manifest_path}")
             return False
 
-    except (KeyError, TypeError) as missing_key:
-        print(f"[Validator] CRITICAL: Structural block {missing_key} is missing from manifest.json!")
-        return False
+    if is_pack_active():
+        try:
+            with open(manifest_path, "r") as f:
+                data = json.load(f)
+        except json.JSONDecodeError as err:
+            logger.rp_thread_log.critical(f"JSON Syntax Error in {manifest_path.name}!")
+            logger.rp_thread_log.critical(f"Line {err.lineno}, Column {err.colno}: {err.msg}")
+            return False
 
-    print(f"[Validator] Handshake Confirmed: Loading '{manifest_node['name']}'...")
+    # Updated flat validation handshake layer checking for format_version directly
+    if is_pack_active():
+        try:
+            manifest_node, version_node = _manifest_details(data)
+
+            required_keys = ["name", "description", "author", "uuid", "version", "min_engine_version"]
+            for key in required_keys:
+                if manifest_node.get(key) is None:
+                    logger.rp_thread_log.error(f"CRITICAL: Required manifest field '{key}' is missing inside the handshake.")
+                    return False
+
+            if version_node != config.format_ver:
+                logger.rp_thread_log.critical(f"Manifest is on format version {version_node}, the engine currently supports format version {config.format_ver}")
+                return False
+
+        except (KeyError, TypeError) as missing_key:
+            logger.rp_thread_log.critical(f"Structural block {missing_key} is missing from manifest.json!")
+            return False
+
+        logger.rp_thread_log.info(f"Handshake Confirmed: Loading '{manifest_node['name']}'...")
 
     missing_files_count = 0
+    
+    if is_pack_active():
+        if "assets" in data:
+            assets_node = data["assets"]
 
-    if "assets" in data:
-        assets_node = data["assets"]
+            def validate_group_paths(asset_group: dict, group_label: str):
+                nonlocal missing_files_count
+                for target_var, entry in asset_group.items():
+                    rel_path = entry["file"] if isinstance(entry, dict) and "file" in entry else entry
+                    if isinstance(rel_path, str):
+                        full_target_path = base_path / rel_path
+                        if not full_target_path.is_file():
+                            logger.rp_thread_log.error(f"Missing {group_label} asset file: '{rel_path}' (Variable: {target_var})")
+                            missing_files_count += 1
 
-        def validate_group_paths(asset_group: dict, group_label: str):
-            nonlocal missing_files_count
-            for target_var, entry in asset_group.items():
-                rel_path = entry["file"] if isinstance(entry, dict) and "file" in entry else entry
-                if isinstance(rel_path, str):
-                    full_target_path = base_path / rel_path
-                    if not full_target_path.is_file():
-                        print(f"[Validator] Missing {group_label} asset file: '{rel_path}' (Variable: {target_var})")
-                        missing_files_count += 1
-
-        if "textures" in assets_node:
-            validate_group_paths(assets_node["textures"], "Texture")
-        if "audio" in assets_node:
-            audio_node = assets_node["audio"]
-            if "sound" in audio_node:
-                validate_group_paths(audio_node["sound"], "Sound")
-            if "music" in audio_node:
-                validate_group_paths(audio_node["music"], "Music")
+            if "textures" in assets_node:
+                validate_group_paths(assets_node["textures"], "Texture")
+            if "audio" in assets_node:
+                audio_node = assets_node["audio"]
+                if "sound" in audio_node:
+                    validate_group_paths(audio_node["sound"], "Sound")
+                if "music" in audio_node:
+                    validate_group_paths(audio_node["music"], "Music")
 
     if missing_files_count > 0:
-        print(f"[Validator] Validation FAILED. {missing_files_count} declared file(s) are missing from disk layout.")
+        logger.rp_thread_log.error(f"Validation FAILED. {missing_files_count} declared file(s) are missing from disk layout.")
         return False
 
-    print("[Validator] Success! Resource pack manifest validation completed with zero errors.")
+    logger.rp_thread_log.info("Success! Resource pack manifest validation completed with zero errors.")
     return True
