@@ -52,3 +52,6 @@ settings.json
 
 # Game Spacific Data
 logs/
+assets/
+resource_packs/
+sound_samples/

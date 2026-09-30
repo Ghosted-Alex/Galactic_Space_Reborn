@@ -15,7 +15,8 @@ from . import (animation,
                 states,
                 decorators,
                 initialize,
-                logger)
+                logger,
+                asset_update)
 
 try:
     from . import pack
@@ -39,6 +40,7 @@ __all__ = [
     decorators,
     initialize,
     logger,
+    asset_update,
 ]
 
 if pack is not None:
