@@ -101,7 +101,7 @@ def handle_event(event: pygame.event.Event, manager=None):
         elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
             _activate_option(_state["selected_index"], manager)
         elif event.key == pygame.K_ESCAPE:
-            _return_to_title(manager)
+            _return_to_prev(manager)
 
     # Controller navigation (main menu)
     elif ControllerInput.nav_up(event):
@@ -111,7 +111,7 @@ def handle_event(event: pygame.event.Event, manager=None):
     elif ControllerInput.confirm(event):
         _activate_option(_state["selected_index"], manager)
     elif ControllerInput.cancel(event):
-        _return_to_title(manager)
+        _return_to_prev(manager)
 
     elif event.type == pygame.MOUSEMOTION:
         mouse_pos = event.pos
@@ -188,7 +188,7 @@ def _activate_option(index: int, manager=None):
                 break
         _state["submenu_open"] = True
     elif index == 2:  # BACK
-        _return_to_title(manager)
+        _return_to_prev(manager)
 
 
 def _start_gameplay(manager=None):
@@ -200,11 +200,11 @@ def _start_gameplay(manager=None):
         manager.set_scene(GameplayScene(), fade=True)
 
 
-def _return_to_title(manager=None):
-    """Return to the title screen."""
+def _return_to_prev(manager=None):
+    """Return to the game menu."""
     if manager:
-        from .title import TitleScene
-        manager.set_scene(TitleScene(), fade=True)
+        from .game_menu import GameMenuScene
+        manager.set_scene(GameMenuScene(), fade=True)
 
 
 # ---------------------------------------------------------------------------

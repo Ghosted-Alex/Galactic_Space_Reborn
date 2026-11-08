@@ -21,15 +21,11 @@ This repository archives game versions, showcases upcoming features, and serves 
 
 ## Game Updates
 
-![Version Badge](https://img.shields.io/badge/Version-1.0--beta.3-green?style=plastic)
+![Version Badge](https://img.shields.io/badge/Version-1.0--beta.4-green?style=plastic)
 ![Update Badge](https://img.shields.io/badge/Update_Type-Beta-purple?style=plastic)
 
-- **Added**:
-  - Added a crash handler
-    - Crash logs will now be created apon a crash
-    - This means you can now create crash reports with the logs!
-  - Added experimental controller support
-    - Please note that controllers do not work in menus yet!
+- **Bug Fixes**
+  - Fixed a few bugs relating to
 
 ---
 
@@ -103,15 +99,25 @@ You can go to the [releases on Github](https://github.com/Ghosted-Alex/Galactic_
 
 1. Clone the repository:
 
-   ```bash
-   git clone https://github.com/Ghosted-Alex/Galactic_Space_Reborn
-   cd Galactic_Space_Reborn
-   ```
+    - GitHub
+
+    ```bash
+    git clone https://github.com/Ghosted-Alex/Galactic_Space_Reborn
+    cd Galactic_Space_Reborn
+    ```
+
+    - GitLab
+
+    ```bash
+    git clone https://gitlab.com/ghostedalex/Galactic_Space_Reborn
+    cd Galactic_Space_Reborn
+    ```
 
 2. Install Dependancies:
 
     ```bash
-    pip install pygame-ce
+    python -m pip install pygame-ce
+    python -m pip install alive-progress
     ```
 
 3. Run the Game:

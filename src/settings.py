@@ -7,17 +7,18 @@ import pygame
 
 import config
 
+version = 1
 
 DEFAULTS = {
+    "version": version,
     "resource_pack": None,
     "display_mode": "windowed",
     "master_volume": 1.0,
     "music_volume": 1.0,
-    "sound_volume": 1.0,
+    "sound_volume": 1.0
 }
 
 _values = dict(DEFAULTS)
-
 
 def load() -> dict:
     """Load settings, adding defaults introduced by newer game versions."""
@@ -32,6 +33,10 @@ def load() -> dict:
     _values = dict(DEFAULTS)
     if isinstance(saved, dict):
         _values.update({key: value for key, value in saved.items() if key in DEFAULTS})
+
+    # Keep the runtime schema version up-to-date with current build
+    _values["version"] = version
+
     save()
     return _values
 

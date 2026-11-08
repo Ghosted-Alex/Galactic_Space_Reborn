@@ -49,6 +49,7 @@ excluded/
 
 # Configurations
 settings.json
+__main__.py
 
 # Game Spacific Data
 logs/

@@ -14,10 +14,9 @@ from src import events
 from src.controls import ControllerInput
 from .base import BaseScene
 from src.decorators import button
-from .play_menu import PlayMenuScene
+from .game_menu import GameMenuScene
 from .options import OptionsScene
 from .resource_pack_menu import ResourcePackMenuScene
-
 
 class TitleScene(BaseScene):
     """Data-driven Title Screen scene utilizing decorators for menu mapping."""
@@ -52,7 +51,7 @@ class TitleScene(BaseScene):
     @button("PLAY GAME", order=0)
     def _on_play(self):
         if self.manager:
-            self.manager.set_scene(PlayMenuScene(), fade=True)
+            self.manager.set_scene(GameMenuScene(), fade=True)
 
     @button("OPTIONS", order=1)
     def _on_options(self):
@@ -156,6 +155,11 @@ class TitleScene(BaseScene):
             version_rect = version_surf.get_rect(bottomleft=(0+10, config.Screen.Size.h-10))
             screen.blit(version_surf, version_rect)
 
+        # Made By/Copyright Text
+        if font_large:
+            signature_surf = font_large.render("Made By Ghosted-Alex", True, (120, 130, 150))
+            signature_rect = version_surf.get_rect(bottomleft=(0+10, config.Screen.Size.h-50))
+            screen.blit(signature_surf, signature_rect)
 
 # --- Module-Level Bridge Functions (Keeps src/scenes/__init__.py happy) ---
 

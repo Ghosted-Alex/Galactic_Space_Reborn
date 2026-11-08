@@ -49,5 +49,6 @@ root_logger.addHandler(handler)
 
 # 4. Define your module loggers
 engine_log = logging.getLogger("Engine Core")
-config_log = logging.getLogger("Engine Config")
-rp_thread_log = logging.getLogger("Resource Pack Thread")
+config_log = logging.getLogger("Engine Core/Engine Config")
+rp_thread_log = logging.getLogger("Engine Core/Resource Pack Thread")
+asset_thread_log = logging.getLogger("Engine Core/Asset Thread")

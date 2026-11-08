@@ -149,7 +149,7 @@ class Game:
 
 format_ver = 1
 
-version_string = "1.0-beta.3"
+version_string = "1.0-beta.4"
 """Args:
     String: '<major>.<minor>-beta|build.<beta|build_number>'"""
 
@@ -173,10 +173,19 @@ build = tail # e.g., "beta.1 / build.20260822"
 
 version = f"{major}.{minor}-{build}"
 
+def set_version(mode: int = 0):
+    global version
+
+    if mode == 1:
+        version = f"{major}.{minor}-{build}_experimental"
+    elif mode == 2:
+        version = f"{major}.{minor}-{build}_debug"
+
 p02_pos = [Screen.Size.w - 246, Screen.Size.h - 195]
 """Position anchor for the Panel 02 UI Element."""
 
-logger.config_log.info("Loaded Config")
+namespace = "gsr"
+scene_namespace = "gsr.scene"
 
 if __name__ == "__main__":
     print(ModuleNotFoundError(

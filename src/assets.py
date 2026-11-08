@@ -9,6 +9,7 @@ import json
 import importlib
 
 from . import logger
+from . import asset_update
 
 # Initialize mixer for sound assets
 pygame.mixer.init()
@@ -74,9 +75,6 @@ class Music:
     invincibility = None
     invincibility_full_draft = None
 
-def check_assets():
-    pass
-
 def load_music(
     song: str | pathlib.Path, 
     fileHint: str = "", 
@@ -100,20 +98,15 @@ def resolve_asset_path(relative_path: str | pathlib.Path) -> pathlib.Path:
     return pathlib.Path(config.DATA_PATH) / "assets" / relative_path
 
 def get_merged_manifest() -> dict:
-    """Gets the active resource-pack manifest merged over the vanilla assets."""
-    try:
-        from . import pack
-    except ImportError:
-        logger.engine_log.error("Unable to load resource pack: can't open file '<PROJECT_ROOT>/src/pack.py': [Errno 2] No such file or directory")
-
-    vanilla_base = pathlib.Path(config.DATA_PATH / "assets")
+    vanilla_base = pathlib.Path(config.DATA_PATH) / "assets"
     vanilla_manifest_path = vanilla_base / "assets.json"
-    with open(vanilla_manifest_path, "r") as f:
-        vanilla_data = json.load(f)
 
-    logger.engine_log.info(f"Vanilla Base set to: {vanilla_base}")
-    # logger.engine_log.info(f"Vanilla Data set to: {vanilla_data}")
-    logger.engine_log.info(f"Vanilla Manifest/Assets path set to: {vanilla_manifest_path}")
+    vanilla_data = {}
+    if vanilla_manifest_path.exists():
+        with open(vanilla_manifest_path, "r") as f:
+            vanilla_data = json.load(f)
+    else:
+        logger.engine_log.warning(f"Vanilla manifest missing at {vanilla_manifest_path}, returning empty base.")
 
     return {
         "textures": dict(vanilla_data.get("textures", {})),
@@ -121,12 +114,21 @@ def get_merged_manifest() -> dict:
         "music": dict(vanilla_data.get("audio", {}).get("music", {}))
     }
 
+def load_assets_generator(debug: bool = False):
+    """
+    Stream loads all game assets using the mod engine's path resolution pipeline.
+    """
 
-def load_assets_generator():
-    """
-    Stream loads all game assets using the mod engine's path resolution pipeline
-    (or vanilla fallback if mod.py is not present).
-    """
+    # 0. SYNC REMOTE ASSETS
+    vanilla_base = pathlib.Path(config.DATA_PATH) / "assets"
+    # if debug:
+    #     for pct, status in asset_update.sync_remote_assets(vanilla_base, True):
+    #         yield pct, status
+    # else:
+    #     for pct, status in asset_update.sync_remote_assets(vanilla_base):
+    #         yield pct, status
+
+    # Fetch updated manifest after potential download
     manifest = get_merged_manifest()
     texture_manifest = manifest["textures"]
     sound_manifest = manifest["sound"]

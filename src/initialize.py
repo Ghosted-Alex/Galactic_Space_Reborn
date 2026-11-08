@@ -3,6 +3,8 @@ import pathlib
 import sys
 from typing import Any
 
+import json
+
 import pygame
 from pygame import Clock, Surface
 from pygame.joystick import JoystickType
@@ -17,88 +19,176 @@ from .scenes import SceneManager, fade_screen
 
 from src.pack import load_resources, verify_manifest
 
-def show_loading_screen(screen, fade_speed):
-    """Load all assets with a visual loading screen, displaying the splash screen when progress reaches halfway."""
+# Modular keyframe triggers based on loader progress percentage (0 - 100)
+SPLASH_KEYFRAMES = {
+    "preroll_fade_in_trigger": 0,    # Percentage threshold to trigger pre-roll fade-in (e.g., 0%, 15%, 25%)
+    "fade_in_speed": 12,              # Alpha increase per frame
+    "preroll_target_alpha": 255,     # Target opacity once triggered
+}
 
-    if not verify_manifest():
-        logger.rp_thread_log.error("Aborting asset streaming sequence due to manifest file verification errors.")
-        pygame.quit()
-        sys.exit(1)
+# --- MODULAR CONFIGURATION FOR PRE-ROLL TRIGGERS ---
+SPLASH_CONFIG = {
+    # Percentage (0-100) at which the pre-roll splash starts fading in
+    "trigger_pct": 15,  
+    # Alpha increment per frame during fade-in
+    "fade_speed": 12,   
+}
 
-    # Pre-resolve pre-roll splash texture configuration
-    manifest = assets.get_merged_manifest()
-    pre_roll_cfg = manifest.get("textures", {}).get("pre_roll", "textures/ui/preRoll.png")
-    if isinstance(pre_roll_cfg, dict):
-        rel_path = pre_roll_cfg.get("file", "textures/ui/preRoll.png")
-        scale = pre_roll_cfg.get("scale", config.SPRITE_SCALING)
-    else:
-        rel_path = pre_roll_cfg
-        scale = config.SPRITE_SCALING
+def load_splash_texture() -> tuple[pygame.Surface | None, int]:
+    """
+    Attempts to pre-read assets.json to get the pre_roll file and scale configuration,
+    loading and scaling the image before full manifest streaming begins.
+    """
+    assets_dir = pathlib.Path(config.DATA_PATH) / "assets"
+    manifest_path = assets_dir / "assets.json"
 
-    pre_roll_path = assets.resolve_asset_path(rel_path)
-    pre_roll_img = None
-    if pre_roll_path.is_file():
+    splash_file = "textures/ui/preRoll.png"
+    splash_scale = 8  # Default scale fallback from assets.json definition
+
+    # Pre-parse assets.json for the pre_roll entry if available
+    if manifest_path.exists():
         try:
-            raw_pre_roll = pygame.image.load(str(pre_roll_path)).convert_alpha()
-            pre_roll_img = pygame.transform.scale_by(raw_pre_roll, scale)
-        except Exception as err:
-            logger.rp_thread_log.error(f"Error loading pre-roll graphic: {err}")
+            with open(manifest_path, "r") as f:
+                data = json.load(f)
+                pre_roll_entry = data.get("textures", {}).get("pre_roll")
+                if isinstance(pre_roll_entry, dict):
+                    splash_file = pre_roll_entry.get("file", splash_file)
+                    splash_scale = pre_roll_entry.get("scale", splash_scale)
+                elif isinstance(pre_roll_entry, str):
+                    splash_file = pre_roll_entry
+        except Exception as e:
+            logger.engine_log.warning(f"Could not parse pre_roll scale from assets.json: {e}")
 
-    # 1. Start asset loading generator
-    loader = assets.load_assets_generator()
-    screen_rect = screen.get_rect()
+    # Load and scale texture
+    splash_path = assets_dir / splash_file
+    if splash_path.exists():
+        try:
+            raw_splash = pygame.image.load(splash_path).convert_alpha()
+            scaled_splash = pygame.transform.scale_by(raw_splash, splash_scale)
+            return scaled_splash, splash_scale
+        except Exception as e:
+            logger.engine_log.warning(f"Could not load pre_roll splash image: {e}")
 
-    # Fade-in state for the pre-roll splash
-    pre_roll_alpha = 0          # current alpha (0=transparent, 255=opaque)
+    return None, splash_scale
 
-    # 2. Progress loop
-    for progress, current_file_text in loader:
+def draw_loading_ui(
+    surface: pygame.Surface,
+    progress_pct: int,
+    status_msg: str,
+    splash_img: pygame.Surface = None,
+    splash_alpha: int = 0
+):
+    """Renders the dark background, splash graphic with dynamic alpha, lowered loading bar, and status text."""
+    scr_width, scr_height = surface.get_size()
+
+    # 1. Base Background
+    surface.fill((15, 15, 22))
+
+    # 2. Render Scaled Splash Image with Alpha (No copy() allocation for better performance)
+    if splash_img and splash_alpha > 0:
+        splash_img.set_alpha(splash_alpha)
+        splash_rect = splash_img.get_rect(center=(scr_width // 2, scr_height // 2 - 20))
+        surface.blit(splash_img, splash_rect)
+
+    # 3. Status Message Text
+    if hasattr(assets, 'monocraft') and assets.monocraft:
+        font = assets.monocraft
+    else:
+        font = pygame.font.Font(None, 24)
+
+    status_surf = font.render(status_msg, True, (200, 200, 220))
+    status_rect = status_surf.get_rect(center=(scr_width // 2, scr_height - 55))
+    surface.blit(status_surf, status_rect)
+
+    # 4. Progress Bar Geometry
+    bar_width = int(scr_width * 0.65)
+    bar_height = 35
+    bar_x = (scr_width - bar_width) // 2
+    bar_y = scr_height // 2 + 100
+
+    border_rect = pygame.Rect(bar_x, bar_y, bar_width, bar_height)
+
+    clamped_pct = max(0, min(100, progress_pct))
+    fill_width = int((bar_width - 6) * (clamped_pct / 100.0))
+    fill_rect = pygame.Rect(bar_x + 3, bar_y + 3, fill_width, bar_height - 6)
+
+    # 5. Render Progress Fill & Border
+    pygame.draw.rect(surface, (40, 45, 60), border_rect, border_radius=6)
+    if fill_width > 0:
+        pygame.draw.rect(surface, (80, 160, 240), fill_rect, border_radius=4)
+    pygame.draw.rect(surface, (100, 110, 140), border_rect, 2, border_radius=6)
+
+    # 6. Percentage Text
+    pct_surf = font.render(f"{clamped_pct}%", True, (255, 255, 255))
+    pct_rect = pct_surf.get_rect(center=(scr_width // 2, bar_y + bar_height // 2 + 2.5))
+    surface.blit(pct_surf, pct_rect)
+
+def show_loading_screen(
+    surface: pygame.Surface,
+    fps: int = 60,
+    debug: bool = False,
+    trigger_pct: int = SPLASH_CONFIG["trigger_pct"]
+):
+    """
+    Displays the splash screen and loading bar, triggering splash reveal at `trigger_pct`.
+    """
+    clock = pygame.time.Clock()
+
+    # 1. Pre-load splash texture and dynamic scale factor
+    splash_img, scale = load_splash_texture()
+
+    # 2. Instantiate generator
+    loader = assets.load_assets_generator(debug=debug)
+
+    progress_pct = 0
+    status_msg = "Initializing engine..."
+    loading = True
+    splash_alpha = 0
+
+    # 3. Main Boot & Stream Loop
+    while loading:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
                 sys.exit(0)
 
-        screen.fill((0, 0, 0))
+        try:
+            progress_pct, status_msg = next(loader)
 
-        bar_width = 400
-        bar_height = 20
-        bar_x = screen_rect.centerx - (bar_width // 2)
-        bar_y = screen_rect.centery + 100
-        progress_bar_width = (progress / 100) * bar_width
+            # Hot-reload pre_roll if downloaded during fresh install sync
+            if splash_img is None:
+                splash_img, _ = load_splash_texture()
 
-        if progress >= 25 and pre_roll_img is not None:
-            pre_roll_alpha = min(255, pre_roll_alpha + fade_speed)
-            pre_roll_img.set_alpha(pre_roll_alpha)
-            pre_roll_rect = pre_roll_img.get_rect(center=(screen_rect.centerx, bar_y - 150))
-            screen.blit(pre_roll_img, pre_roll_rect)
+        except StopIteration:
+            loading = False
+            progress_pct = 100
+            status_msg = "Loading Complete! Starting Game..."
 
-        # Draw progress bar outlines and fill
-        pygame.draw.rect(screen, (255, 255, 255), (bar_x, bar_y, progress_bar_width, bar_height))
-        pygame.draw.rect(screen, (255, 255, 255), (bar_x - 4, bar_y - 4, bar_width + 8, bar_height + 8), 1)
+        # Modular Trigger Check: Only advance alpha if loading percentage >= trigger_pct
+        if progress_pct >= trigger_pct and splash_alpha < 255:
+            splash_alpha = min(255, splash_alpha + SPLASH_CONFIG["fade_speed"])
 
-        # Draw progress, title, and current file text
-        if hasattr(assets, 'pressStart2P') and assets.pressStart2P is not None:
-            title = assets.pressStart2P.render("Loading Game...", True, (255, 255, 255))
-            status = assets.pressStart2P.render(f"({progress}%)", True, (255, 255, 255))
-
-            # Create a smaller font or render the current file string (you can scale it down if 30pt is too big)
-            file_surf = assets.pressStart2P.render(current_file_text, True, (180, 180, 180))
-            # Optional: Scale down file text so it doesn't overflow the screen width
-            file_surf = pygame.transform.smoothscale(file_surf, (int(file_surf.get_width() * 0.5),
-                                                                 int(file_surf.get_height() * 0.5)))
-
-            title_rect = title.get_rect(center=(screen_rect.centerx, bar_y - 30))
-            status_rect = status.get_rect(center=(screen_rect.centerx, bar_y + 45))
-            file_rect = file_surf.get_rect(center=(screen_rect.centerx, bar_y + 80))
-
-            screen.blit(title, title_rect)
-            screen.blit(status, status_rect)
-            screen.blit(file_surf, file_rect)
-
+        # Draw frame
+        draw_loading_ui(
+            surface,
+            progress_pct,
+            status_msg,
+            splash_img=splash_img,
+            splash_alpha=splash_alpha
+        )
         pygame.display.flip()
+        clock.tick(fps)
 
-    # Fade out loading screen to black before entering title screen
-    fade_screen(screen, mode="out", speed=15)
+    # 4. Fade-Out to Black Sequence
+    fade_overlay = pygame.Surface(surface.get_size()).convert()
+    fade_overlay.fill((0, 0, 0))
+
+    for alpha in range(0, 256, 15):
+        fade_overlay.set_alpha(alpha)
+        draw_loading_ui(surface, 100, "Loading Complete! Starting Game...", splash_img=splash_img, splash_alpha=splash_alpha)
+        surface.blit(fade_overlay, (0, 0))
+        pygame.display.flip()
+        clock.tick(fps)
 
 def initialize_files() -> None:
     files_created = []
