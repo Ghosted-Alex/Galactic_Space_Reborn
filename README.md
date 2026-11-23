@@ -46,8 +46,8 @@ This repository archives game versions, showcases upcoming features, and serves 
 
 |              | **Minimum** | **Recommended** |
 |--------------|:-----------:|:---------------:|
-| **Python**   |    3.10     |      3.13       |
-| **Pygame**   |    2.1.3    |      2.5.7      |
+| **Python**   |    3.12     |      3.15       |
+| **Pygame-CE**   |    2.5.7    |      2.5.8      |
 
 ## Download & How to Play
 
